@@ -96,7 +96,7 @@ This order matches the typical Informatica execution flow. If a transform type i
 
 - Single folder per XML export (first FOLDER element used)
 - `SELECT *` in CTEs can produce duplicate columns when joining
-- No mapplet resolution (reusable sub-mappings)
+- No nested mapplet resolution (single level only)
 - No support for multiple Source Qualifiers feeding into one mapping (multi-source joins should use Joiner)
 - YAML output uses string concatenation (no escaping for special characters in descriptions)
 

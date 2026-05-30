@@ -1,7 +1,7 @@
 [project]
 name = "pipeshift"
 version = "0.1.0"
-description = "AI-powered migration agent: Informatica PowerCenter → dbt / AWS Glue"
+description = "Convert Informatica PowerCenter ETL pipelines to dbt projects and AWS Step Functions"
 requires-python = ">=3.11"
 dependencies = [
     "pydantic==2.11.1",

@@ -101,7 +101,7 @@ Informatica Workflows are converted to AWS Step Functions:
 
 ```bash
 # From source
-git clone https://github.com/yourusername/pipeshift.git
+git clone https://github.com/s-arvenik/pipeshift.git
 cd pipeshift
 pip install -e ".[dev]"
 
