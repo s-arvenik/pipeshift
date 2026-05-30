@@ -1,0 +1,148 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: PipeShift Bedrock Agent — Informatica to dbt migration agent
+
+Parameters:
+  OutputBucket:
+    Type: String
+    Description: S3 bucket for converted dbt project output
+  BedrockModelId:
+    Type: String
+    Default: anthropic.claude-sonnet-4-20250514-v1:0
+    Description: Foundation model ID for the Bedrock Agent
+
+Resources:
+  # S3 bucket for agent artifacts (OpenAPI schema)
+  AgentArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${AWS::StackName}-agent-artifacts'
+
+  # Lambda execution role
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-lambda-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub 'arn:aws:s3:::${OutputBucket}/*'
+                  - !Sub 'arn:aws:s3:::${OutputBucket}'
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: '*'
+                Condition:
+                  StringLike:
+                    s3:prefix: '*.xml'
+
+  # Lambda function (container image)
+  AgentLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-handler'
+      PackageType: Image
+      Code:
+        ImageUri: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/pipeshift-agent:latest'
+      Role: !GetAtt LambdaRole.Arn
+      Timeout: 300
+      MemorySize: 1024
+      Environment:
+        Variables:
+          OUTPUT_BUCKET: !Ref OutputBucket
+
+  # Permission for Bedrock to invoke Lambda
+  BedrockLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt AgentLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: bedrock.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+
+  # Bedrock Agent role
+  BedrockAgentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-bedrock-agent-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: BedrockAgentPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                Resource: !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/${BedrockModelId}'
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !GetAtt AgentLambda.Arn
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: !Sub '${AgentArtifactsBucket.Arn}/*'
+
+  # Bedrock Agent
+  PipeShiftAgent:
+    Type: AWS::Bedrock::Agent
+    Properties:
+      AgentName: !Sub '${AWS::StackName}'
+      Description: AI-powered Informatica PowerCenter to dbt migration agent
+      AgentResourceRoleArn: !GetAtt BedrockAgentRole.Arn
+      FoundationModel: !Ref BedrockModelId
+      Instruction: |
+        You are PipeShift, an AI migration agent that converts Informatica PowerCenter ETL pipelines to production-ready dbt projects. Start by analyzing the estate, then convert mappings, and explain decisions when asked. Always present the complexity breakdown before converting.
+      ActionGroups:
+        - ActionGroupName: pipeshift-tools
+          ActionGroupExecutor:
+            Lambda: !GetAtt AgentLambda.Arn
+          ApiSchema:
+            S3:
+              S3BucketName: !Ref AgentArtifactsBucket
+              S3ObjectKey: openapi_schema.json
+
+  # ECR Repository for the container image
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: pipeshift-agent
+      ImageScanningConfiguration:
+        ScanOnPush: true
+
+Outputs:
+  AgentId:
+    Value: !Ref PipeShiftAgent
+    Description: Bedrock Agent ID
+  LambdaArn:
+    Value: !GetAtt AgentLambda.Arn
+    Description: Lambda function ARN
+  ECRRepositoryUri:
+    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/pipeshift-agent'
+    Description: ECR repository URI for pushing container images
+  ArtifactsBucket:
+    Value: !Ref AgentArtifactsBucket
+    Description: S3 bucket for agent artifacts (upload openapi_schema.json here)

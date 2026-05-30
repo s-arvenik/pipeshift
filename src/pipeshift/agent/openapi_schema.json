@@ -1,0 +1,169 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PipeShift Migration Agent",
+    "description": "AI-powered Informatica PowerCenter to dbt/AWS Glue migration agent",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/analyze_estate": {
+      "post": {
+        "operationId": "analyze_estate",
+        "summary": "Analyze an Informatica PowerCenter export",
+        "description": "Ingests an Informatica XML export from S3, inventories all mappings, scores complexity, maps dependencies, and returns a comprehensive migration assessment report.",
+        "parameters": [
+          {
+            "name": "s3_uri",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "S3 URI of the Informatica PowerCenter XML export file (e.g., s3://bucket/path/export.xml)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Migration assessment report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "repository": { "type": "string" },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "mappings": { "type": "integer" },
+                        "transforms": { "type": "integer" },
+                        "workflows": { "type": "integer" },
+                        "sources": { "type": "integer" },
+                        "targets": { "type": "integer" }
+                      }
+                    },
+                    "complexity": {
+                      "type": "object",
+                      "properties": {
+                        "simple": { "type": "integer" },
+                        "medium": { "type": "integer" },
+                        "complex": { "type": "integer" },
+                        "manual": { "type": "integer" }
+                      }
+                    },
+                    "mappings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": { "type": "string" },
+                          "score": { "type": "number" },
+                          "complexity": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/convert_mappings": {
+      "post": {
+        "operationId": "convert_mappings",
+        "summary": "Convert Informatica mappings to a dbt project",
+        "description": "Converts an Informatica PowerCenter XML export into a production-ready dbt project with models, sources, schema tests, reconciliation queries, and Step Functions orchestration. Output is uploaded to S3.",
+        "parameters": [
+          {
+            "name": "s3_uri",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "S3 URI of the Informatica PowerCenter XML export file"
+          },
+          {
+            "name": "output_bucket",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "S3 bucket name for the generated dbt project output"
+          },
+          {
+            "name": "output_prefix",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "default": "pipeshift-output/" },
+            "description": "S3 key prefix for output files"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conversion result with output locations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string" },
+                    "files_generated": { "type": "integer" },
+                    "output_location": { "type": "string" },
+                    "zip_archive": { "type": "string" },
+                    "mappings_converted": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/explain_decision": {
+      "post": {
+        "operationId": "explain_decision",
+        "summary": "Explain a complexity score or conversion decision",
+        "description": "Explains why a specific mapping received its complexity score, what risk flags were identified, and which expressions have low translation confidence. Use this after analyze_estate to drill into specific mappings.",
+        "parameters": [
+          {
+            "name": "s3_uri",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "S3 URI of the Informatica PowerCenter XML export file"
+          },
+          {
+            "name": "mapping_name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Name of the mapping to explain (e.g., m_LOAD_CUSTOMER_DIM)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detailed explanation of the mapping assessment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mapping": { "type": "string" },
+                    "score": { "type": "number" },
+                    "complexity": { "type": "string" },
+                    "transform_breakdown": { "type": "object" },
+                    "risk_flags": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    },
+                    "explanation": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

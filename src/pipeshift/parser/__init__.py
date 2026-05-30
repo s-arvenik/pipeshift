@@ -1,0 +1,1 @@
+"""Informatica PowerCenter XML parser."""

@@ -1,0 +1,25 @@
+# Tests and fixtures (not needed in production)
+tests/
+real_test_output*/
+
+# Documentation (IP exposure)
+docs/
+ARCHITECTURE.md
+CONTRIBUTING.md
+TASKS.md
+README.md
+
+# Development artifacts
+.venv/
+.pytest_cache/
+__pycache__/
+*.pyc
+.git/
+.gitignore
+
+# Infrastructure (don't ship deploy scripts in container)
+infra/
+
+# IDE
+.vscode/
+.idea/

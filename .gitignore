@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+*.egg
+.venv/
+venv/
+target/
+dbt_packages/
+real_test_output*/
+report.html
